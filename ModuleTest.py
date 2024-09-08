@@ -100,7 +100,7 @@ def run_conversation(language: str, user_input: str, provided_inputs: str = "") 
     messages = client.beta.threads.messages.list(thread_id=thread.id)
     assistant_messages = [msg for msg in messages if msg.role == 'assistant']
     
-    if assistant_messages:
+    if assistant_messages:\
         response_text = assistant_messages[0].content[0].text.value
         print("Raw assistant response:", response_text)  # 디버깅을 위해 원본 응답 출력
         return parse_response(response_text)
