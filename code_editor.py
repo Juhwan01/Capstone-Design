@@ -1,65 +1,49 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QTextEdit
-from PyQt5.Qsci import QsciScintilla, QsciLexerPython
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
+import requests
+from dotenv import load_dotenv
+import os
 
-class CodeEditor(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-        self.loadModel()
+# Load environment variables from .env file
+load_dotenv()
 
-    def initUI(self):
-        self.setWindowTitle('Starcoder2 Code Editor')
-        self.setGeometry(100, 100, 1000, 600)
+# Get API token from environment variable
+API_TOKEN = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-        main_widget = QWidget()
-        main_layout = QHBoxLayout()
+if not API_TOKEN:
+    raise ValueError("HUGGINGFACEHUB_API_TOKEN not found in .env file")
 
-        self.editor = QsciScintilla()
-        self.editor.setLexer(QsciLexerPython())
-        self.editor.setUtf8(True)
-        self.editor.setFont('Consolas')
-        self.editor.setMarginsFont('Consolas')
-        self.editor.setMarginWidth(0, '0000')
-        self.editor.setMarginLineNumbers(0, True)
-        self.editor.setTabWidth(4)
+# Using the Salesforce/codegen-350M-mono model
+API_URL = "https://api-inference.huggingface.co/models/Salesforce/codegen-350M-mono"
+headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-        self.output = QTextEdit()
-        self.output.setReadOnly(True)
+def generate_code(prompt: str, max_length: int = 256) -> str:
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": max_length,
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "do_sample": True,
+            "return_full_text": False
+        }
+    }
 
-        button_layout = QVBoxLayout()
-        self.generate_button = QPushButton('Generate')
-        self.generate_button.clicked.connect(self.generateCode)
-        button_layout.addWidget(self.generate_button)
+    response = requests.post(API_URL, headers=headers, json=payload)
+    
+    if response.status_code != 200:
+        raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
 
-        editor_layout = QVBoxLayout()
-        editor_layout.addWidget(self.editor)
-        editor_layout.addWidget(self.output)
+    result = response.json()
+    
+    if isinstance(result, list) and len(result) > 0:
+        generated_code = result[0].get('generated_text', '')
+        return generated_code.strip()
+    else:
+        raise Exception("Unexpected API response format")
 
-        main_layout.addLayout(editor_layout)
-        main_layout.addLayout(button_layout)
-
-        main_widget.setLayout(main_layout)
-        self.setCentralWidget(main_widget)
-
-    def loadModel(self):
-        self.tokenizer = AutoTokenizer.from_pretrained("bigcode/starcoder2-3b")
-        self.model = AutoModelForCausalLM.from_pretrained("bigcode/starcoder2-3b", 
-                                                          device_map="auto", 
-                                                          load_in_8bit=True)
-
-    def generateCode(self):
-        prompt = self.editor.text()
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        with torch.no_grad():
-            outputs = self.model.generate(**inputs, max_length=len(prompt) + 100)
-        generated_code = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        self.output.setPlainText(generated_code[len(prompt):])
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    editor = CodeEditor()
-    editor.show()
-    sys.exit(app.exec_())
+# Example usage
+prompt = "Write a Python function to calculate the factorial of a number"
+try:
+    generated_code = generate_code(prompt)
+    print(f"Generated code:\n{generated_code}")
+except Exception as e:
+    print(f"An error occurred: {str(e)}")

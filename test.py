@@ -3,3 +3,4 @@ num1 = int(input("Enter a number: "))
 num2 = int(input("Enter another number: "))
 result = num1 + num2
 print(f"The sum of {num1} and {num2} is {result}")
+gpt-4o-2024-08-06
