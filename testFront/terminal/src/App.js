@@ -1,36 +1,19 @@
-import React, { useEffect, useRef } from 'react';
-import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import 'xterm/css/xterm.css';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Login from './components/Login';
+import Callback from './components/Callback';
+import Dashboard from './components/Dashboard';
 
-const TerminalComponent = () => {
-  const terminalRef = useRef(null);
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/callback" element={<Callback />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </Router>
+  );
+}
 
-  useEffect(() => {
-    const term = new Terminal();
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-
-    term.open(terminalRef.current);
-    fitAddon.fit();
-
-    term.writeln('Welcome to the web terminal!');
-    term.onKey(e => {
-      const printable = !e.domEvent.altKey && !e.domEvent.ctrlKey && !e.domEvent.metaKey;
-
-      if (e.domEvent.keyCode === 13) {
-        term.writeln('');
-      } else if (printable) {
-        term.write(e.key);
-      }
-    });
-
-    return () => {
-      term.dispose();
-    };
-  }, []);
-
-  return <div ref={terminalRef} style={{ height: '400px', width: '100%' }} />;
-};
-
-export default TerminalComponent;
+export default App;
