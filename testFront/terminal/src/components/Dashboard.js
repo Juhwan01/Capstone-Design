@@ -12,6 +12,7 @@ function Dashboard() {
   const [fileContent, setFileContent] = useState('');
   const [newFileName, setNewFileName] = useState('');
   const [newFileContent, setNewFileContent] = useState('');
+  const [commitMessage, setCommitMessage] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,15 +66,21 @@ function Dashboard() {
   };
 
   const handleUpdateFile = async () => {
+    if (!commitMessage) {
+      alert('커밋 메시지를 입력해주세요.');
+      return;
+    }
     try {
       await axios.post('http://localhost:8000/api/update-file', {
         token,
         repo_name: selectedRepo,
         file_path: selectedFile,
         content: fileContent,
-        branch: 'main' // Assuming 'main' as the default branch
+        branch: 'main', // Assuming 'main' as the default branch
+        commit_message: commitMessage
       });
       alert('File updated successfully');
+      setCommitMessage('');
     } catch (error) {
       console.error('Error updating file:', error);
       alert('Failed to update file');
@@ -81,17 +88,23 @@ function Dashboard() {
   };
 
   const handleCreateFile = async () => {
+    if (!commitMessage) {
+      alert('커밋 메시지를 입력해주세요.');
+      return;
+    }
     try {
       await axios.post('http://localhost:8000/api/create-file', {
         token,
         repo_name: selectedRepo,
         file_name: newFileName,
         content: newFileContent,
-        branch: 'main' // Assuming 'main' as the default branch
+        branch: 'main', // Assuming 'main' as the default branch
+        commit_message: commitMessage
       });
       alert('File created successfully');
       setNewFileName('');
       setNewFileContent('');
+      setCommitMessage('');
     } catch (error) {
       console.error('Error creating file:', error);
       alert('Failed to create file');
@@ -142,6 +155,13 @@ function Dashboard() {
             cols={50}
           />
           <br />
+          <input
+            type="text"
+            placeholder="커밋 메시지"
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+          />
+          <br />
           <button onClick={handleUpdateFile}>변경 사항 커밋</button>
         </>
       )}
@@ -159,6 +179,13 @@ function Dashboard() {
         onChange={(e) => setNewFileContent(e.target.value)}
         rows={10}
         cols={50}
+      />
+      <br />
+      <input
+        type="text"
+        placeholder="커밋 메시지"
+        value={commitMessage}
+        onChange={(e) => setCommitMessage(e.target.value)}
       />
       <br />
       <button onClick={handleCreateFile}>파일 생성 및 커밋</button>

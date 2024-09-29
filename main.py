@@ -33,6 +33,7 @@ class FileUpdate(BaseModel):
     file_path: str
     content: str
     branch: str
+    commit_message: str  # 새로 추가된 필드
 
 class FileCreate(BaseModel):
     token: str
@@ -40,6 +41,7 @@ class FileCreate(BaseModel):
     file_name: str
     content: str
     branch: str
+    commit_message: str  # 새로 추가된 필드
 
 def get_github_client(token: str):
     return Github(token)
@@ -65,7 +67,6 @@ async def github_login(code_exchange: CodeExchange):
         return data
     else:
         raise HTTPException(status_code=response.status_code, detail="Failed to retrieve token")
-
 
 @app.get("/api/user-repos")
 async def get_user_repos(token: str):
@@ -101,7 +102,7 @@ async def update_file(file_update: FileUpdate):
     try:
         repo = g.get_user().get_repo(file_update.repo_name)
         contents = repo.get_contents(file_update.file_path, ref=file_update.branch)
-        repo.update_file(contents.path, "Update file", file_update.content, contents.sha, branch=file_update.branch)
+        repo.update_file(contents.path, file_update.commit_message, file_update.content, contents.sha, branch=file_update.branch)
         return {"message": "File updated successfully"}
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -111,7 +112,7 @@ async def create_file(file_create: FileCreate):
     g = get_github_client(file_create.token)
     try:
         repo = g.get_user().get_repo(file_create.repo_name)
-        repo.create_file(file_create.file_name, "Create new file", file_create.content, branch=file_create.branch)
+        repo.create_file(file_create.file_name, file_create.commit_message, file_create.content, branch=file_create.branch)
         return {"message": "File created successfully"}
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
