@@ -1,18 +1,26 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Login from './components/Login';
-import Callback from './components/Callback';
-import Dashboard from './components/Dashboard';
+import React, { useState, useRef, useCallback } from 'react';
+import TerminalComponent from './components/Terminal';
+import CodeEditor from './components/CodeEditor';
 
 function App() {
+  const [code, setCode] = useState('# Write your Python code here\n');
+  const terminalRef = useRef(null);
+
+  const runCode = useCallback(() => {
+    if (terminalRef.current) {
+      terminalRef.current.executeCommand(`EXECUTE_PYTHON:${code}`);
+    } else {
+      console.error('Terminal reference is not available');
+    }
+  }, [code]);
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/callback" element={<Callback />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </Router>
+    <div className="App">
+      <h1>Web IDE</h1>
+      <CodeEditor code={code} setCode={setCode} />
+      <button onClick={runCode}>Run Code</button>
+      <TerminalComponent ref={terminalRef} />
+    </div>
   );
 }
 
