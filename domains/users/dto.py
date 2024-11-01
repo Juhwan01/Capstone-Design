@@ -11,6 +11,9 @@ class UserSignUpDTO(BaseModel):
     bio: Optional[str] = None
     profile_picture: Optional[HttpUrl] = None
 
+class CodeExchange(BaseModel):
+    code: str
+
 class UserLoginDTO(BaseModel):
     username: str
     password: str
