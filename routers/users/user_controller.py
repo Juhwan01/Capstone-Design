@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel
 from github import Github, GithubException
 from typing import Optional
 import httpx
@@ -9,7 +8,7 @@ from domains.users.dto import CodeExchange
 
 config = get_config()
 
-router = APIRouter(prefix='/users')
+router = APIRouter(prefix='/users',tags=["Users"])
 
 def get_github_client(token: str):
     return Github(token)

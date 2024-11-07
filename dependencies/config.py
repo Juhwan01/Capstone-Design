@@ -16,6 +16,7 @@ class DefaultConfig(BaseSettings):
         "JWT_SECRET_KEY",
         "5c2fea6305c8c209714e73b265958703e65c4b40dec4c388dddac06f3f791ec7",
     )
+    openai_api_key:str = os.getenv("OPENAI_API_KEY")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expire_minutes: int = int(os.getenv("JWT_TOKEN_EXPIRE_MINUTES", "600"))
     GITHUB_CLIENT_ID: Optional[str] = os.getenv("GITHUB_CLIENT_ID")

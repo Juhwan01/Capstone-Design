@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers.users.user_controller import router as user_router
+from routers.socket.socket_controller import router as socket_router
 
+routers = []
+routers.append(user_router, socket_router)
 
 app = FastAPI()
 
@@ -15,7 +18,7 @@ app.add_middleware(
 )
 
 # user_controller 라우터 등록
-app.include_router(user_router)
+app.include_router(routers)
 
 if __name__ == "__main__":
     import uvicorn
