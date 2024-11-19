@@ -1,24 +1,23 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-import openai, os
+from openai import OpenAI
+import os
 from dependencies.config import get_config
 
 config = get_config()
-
+client = OpenAI()  # OpenAI 클라이언트 초기화
 
 router = APIRouter(prefix='/socket',tags=["Socket"])
 
-# WebSocket 핸들러
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            # 클라이언트로부터 메시지 수신
             data = await websocket.receive_text()
             data = eval(data)
             print("코드 변경 감지:", data)
 
-            completion = openai.ChatCompletion.create(
+            completion = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {
@@ -42,7 +41,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 frequency_penalty=0.1,
             )
 
-            suggestion = completion['choices'][0]['message']['content'].strip()
+            suggestion = completion.choices[0].message.content.strip()
 
             # 마크다운 코드 블록 및 언어 지정자 제거
             suggestion = suggestion.replace('```', '').strip()
