@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-router = APIRouter(prefix='/api',tags=["ai"])
+router = APIRouter(tags=["ai"])
 
 # OpenAI API 키 설정
 openai.api_key = os.getenv("OPENAI_API_KEY")
