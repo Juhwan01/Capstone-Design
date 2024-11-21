@@ -83,3 +83,24 @@ async def get_file_content(
         return {"content": file_content.decoded_content.decode()}
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/update-file")
+async def update_file(file_update: FileUpdate):
+    g = get_github_client(file_update.token)
+    try:
+        repo = g.get_user().get_repo(file_update.repo_name)
+        contents = repo.get_contents(file_update.file_path, ref=file_update.branch)
+        repo.update_file(contents.path, file_update.commit_message, file_update.content, contents.sha, branch=file_update.branch)
+        return {"message": "File updated successfully"}
+    except GithubException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/create-file")
+async def create_file(file_create: FileCreate):
+    g = get_github_client(file_create.token)
+    try:
+        repo = g.get_user().get_repo(file_create.repo_name)
+        repo.create_file(file_create.file_name, file_create.commit_message, file_create.content, branch=file_create.branch)
+        return {"message": "File created successfully"}
+    except GithubException as e:
+        raise HTTPException(status_code=400, detail=str(e))
