@@ -14,6 +14,22 @@ class UserSignUpDTO(BaseModel):
 class CodeExchange(BaseModel):
     code: str
 
+class FileUpdate(BaseModel):
+    token: str
+    repo_name: str
+    file_path: str
+    content: str
+    branch: str
+    commit_message: str  # 새로 추가된 필드
+
+class FileCreate(BaseModel):
+    token: str
+    repo_name: str
+    file_name: str
+    content: str
+    branch: str
+    commit_message: str  # 새로 추가된 필드
+
 class UserLoginDTO(BaseModel):
     username: str
     password: str

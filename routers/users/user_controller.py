@@ -4,7 +4,7 @@ from typing import Optional
 import httpx
 import os
 from dependencies.config import get_config
-from domains.users.dto import CodeExchange
+from domains.users.dto import CodeExchange, FileCreate, FileUpdate
 
 config = get_config()
 
@@ -84,7 +84,7 @@ async def get_file_content(
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/update-file")
+@router.post("/api/update-file")
 async def update_file(file_update: FileUpdate):
     g = get_github_client(file_update.token)
     try:
@@ -95,7 +95,7 @@ async def update_file(file_update: FileUpdate):
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/create-file")
+@router.post("/api/create-file")
 async def create_file(file_create: FileCreate):
     g = get_github_client(file_create.token)
     try:
