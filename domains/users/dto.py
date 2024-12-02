@@ -66,3 +66,7 @@ class TopUpResponseDTO(BaseModel):
     message: str
     new_balance: Decimal
     amount: Decimal  # 추가된 필드
+
+class CloneRequest(BaseModel):
+    repo_url: str
+    destination: str
