@@ -105,7 +105,7 @@ async def create_file(file_create: FileCreate):
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/clone-repo")
+@router.post("/clone-repo")
 def clone_repository(request: CloneRequest):
     repo_url = request.repo_url
     destination = request.destination
