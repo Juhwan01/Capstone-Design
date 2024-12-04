@@ -3,6 +3,7 @@ import os
 from domains.ai.dto import *
 import openai
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 load_dotenv()
 
@@ -17,39 +18,74 @@ if not openai.api_key:
 @router.post("/api/analyze-code-changes")
 async def analyze_code_changes(comparison: CodeComparison):
     try:
-        # 원본 코드와 새 코드를 라인 단위로 분리
-        original_lines = comparison.original_code.splitlines()
-        new_lines = comparison.new_code.splitlines()
+        # 원드 정리: 빈 줄 제거 및 공백 정규화
+        def clean_code(code):
+            lines = [line.strip() for line in code.splitlines() if line.strip()]
+            return lines
+
+        original_lines = clean_code(comparison.original_code)
+        new_lines = clean_code(comparison.new_code)
         
-        # 변경사항 분석
         changes = {
             "additions": [],
             "deletions": [],
             "modifications": []
         }
         
-        # 간단한 diff 알고리즘 구현
-        from difflib import SequenceMatcher
-        matcher = SequenceMatcher(None, original_lines, new_lines)
+        # styled-components 스타일 블록 분석
+        def parse_style_block(lines):
+            styles = {}
+            current_selector = None
+            
+            for line in lines:
+                if '`' in line:  # 스타일 블록 시작/끝
+                    continue
+                    
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                if line.endswith('{'):  # 새로운 선택자 시작
+                    current_selector = line[:-1].strip()
+                    styles[current_selector] = []
+                elif line.endswith('}'):  # 선택자 블록 끝
+                    current_selector = None
+                elif current_selector and ':' in line:  # 스타일 속성
+                    styles[current_selector].append(line)
+            
+            return styles
         
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'insert':
-                changes["additions"].extend({
-                    "line": j,
-                    "content": new_lines[j]
-                } for j in range(j1, j2))
-            elif tag == 'delete':
-                changes["deletions"].extend({
-                    "line": i,
-                    "content": original_lines[i]
-                } for i in range(i1, i2))
-            elif tag == 'replace':
-                changes["modifications"].extend({
-                    "original_line": i,
-                    "new_line": j,
-                    "original_content": original_lines[i],
-                    "new_content": new_lines[j]
-                } for i, j in zip(range(i1, i2), range(j1, j2)))
+        original_styles = parse_style_block(original_lines)
+        new_styles = parse_style_block(new_lines)
+        
+        # 스타일 변경사항 분석
+        for selector, new_props in new_styles.items():
+            if selector in original_styles:
+                # 기존 스타일에 새로운 속성 추가 또는 수정
+                original_props = set(original_styles[selector])
+                new_props_set = set(new_props)
+                
+                added_props = new_props_set - original_props
+                if added_props:
+                    changes["additions"].extend({
+                        "line": -1,  # 실제 라인 번호는 프론트엔드에서 결정
+                        "content": prop
+                    } for prop in added_props)
+                
+                modified_props = {prop for prop in new_props if prop not in added_props}
+                if modified_props:
+                    changes["modifications"].extend({
+                        "original_line": -1,
+                        "new_line": -1,
+                        "original_content": "",
+                        "new_content": prop
+                    } for prop in modified_props)
+            else:
+                # 새로운 스타일 블록 추가
+                changes["additions"].append({
+                    "line": -1,
+                    "content": f"{selector} {{\n  " + "\n  ".join(new_props) + "\n}}"
+                })
         
         return {
             "status": "success",
