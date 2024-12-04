@@ -191,15 +191,18 @@ async def analyze_file(request: GPTRequest):
     try:
         # 파일이 비어있거나 선택되지 않은 경우
         if not request.code or request.code.isspace():
-            # 프로그래밍 관련 질문이 있는지 확인
             if not request.question:
                 return {"answer": "파일을 선택하거나 프로그래밍 관련 질문을 입력해주세요."}
             
             # GPT에게 일반적인 프로그래밍 질문 전달
             system_prompt = """당신은 프로그래밍 전문가입니다.
-            JavaScript와 Python에 대한 질문에 답변해주세요.
-            다른 주제에 대한 질문은 답변하지 마세요.
-            코드 예제가 필요한 경우 실행 가능한 코드를 제공해주세요."""
+            JavaScript와 Python에 대한 질문에만 답변해주세요.
+            다른 주제의 질문이 들어오면 "JavaScript 또는 Python 관련 질문만 답변 가능합니다."라고 답변해주세요.
+            코드 예제가 필요한 경우 실행 가능한 코드를 제공해주세요.
+            답변은 다음 형식으로 제공해주세요:
+            1. 개념 설명
+            2. 코드 예제 (있는 경우)
+            3. 추가 참고사항"""
 
             client = openai.OpenAI()
             response = client.chat.completions.create(
@@ -212,47 +215,33 @@ async def analyze_file(request: GPTRequest):
                 max_tokens=1000
             )
             
-            answer = response.choices[0].message.content
-            return {"answer": answer}
+            return {"answer": response.choices[0].message.content}
 
-        # 기존 파일 분석 로직
+        # 파일 분석 로직
         file_extension = request.code.split('.')[-1].lower() if '.' in request.code else ''
         
         if file_extension not in ['js', 'py']:
             return {"answer": "지원하지 않는 파일 형식입니다. JavaScript 또는 Python 파일만 분석 가능합니다."}
 
-        # 나머지 기존 코드는 그대로 유지
         system_prompt = f"""당신은 {file_extension.upper()} 코드 분석 전문가입니다. 
-        주어진 코드 파일의 컨텍스트를 기반으로 질문에 답변해주세요. 
-        코드의 구조, 목적, 기능을 정확히 이해하고 설명해주세요."""
+        주어진 코드 파일의 컨텍스트를 기반으로만 질문에 답변해주세요. 
+        코드의 구조, 목적, 기능을 정확히 이해하고 설명해주세요.
+        답변은 다음 형식으로 제공해주세요:
+        1. 코드 분석 결과
+        2. 질문에 대한 답변
+        3. 개선 제안사항 (있는 경우)"""
 
-        user_prompt = f"""다음 {file_extension.upper()} 코드 파일을 분석하고 질문에 답변해주세요.
-
-코드 파일:
-{request.code}
-
-질문:
-{request.question}
-
-다음 형식으로 답변해주세요:
-1. 코드 관련 설명
-2. 질문에 대한 답변
-3. 관련 예시나 추가 설명 (필요한 경우)
-"""
-
-        client = openai.OpenAI()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": f"코드:\n{request.code}\n\n질문:\n{request.question}"}
             ],
             temperature=0.7,
             max_tokens=1000
         )
         
-        answer = response.choices[0].message.content
-        return {"answer": answer}
+        return {"answer": response.choices[0].message.content}
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
