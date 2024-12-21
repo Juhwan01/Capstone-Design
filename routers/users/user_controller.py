@@ -4,7 +4,7 @@ from typing import Optional
 import httpx
 import os
 from dependencies.config import get_config
-from domains.users.dto import CodeExchange, FileCreate, FileUpdate
+from domains.users.dto import CodeExchange, FileCreate, FileUpdate, CloneRequest
 
 config = get_config()
 
