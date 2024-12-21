@@ -3,6 +3,7 @@ import os
 from domains.ai.dto import *
 import openai
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 load_dotenv()
 
@@ -17,39 +18,74 @@ if not openai.api_key:
 @router.post("/api/analyze-code-changes")
 async def analyze_code_changes(comparison: CodeComparison):
     try:
-        # 원본 코드와 새 코드를 라인 단위로 분리
-        original_lines = comparison.original_code.splitlines()
-        new_lines = comparison.new_code.splitlines()
+        # 원드 정리: 빈 줄 제거 및 공백 정규화
+        def clean_code(code):
+            lines = [line.strip() for line in code.splitlines() if line.strip()]
+            return lines
+
+        original_lines = clean_code(comparison.original_code)
+        new_lines = clean_code(comparison.new_code)
         
-        # 변경사항 분석
         changes = {
             "additions": [],
             "deletions": [],
             "modifications": []
         }
         
-        # 간단한 diff 알고리즘 구현
-        from difflib import SequenceMatcher
-        matcher = SequenceMatcher(None, original_lines, new_lines)
+        # styled-components 스타일 블록 분석
+        def parse_style_block(lines):
+            styles = {}
+            current_selector = None
+            
+            for line in lines:
+                if '`' in line:  # 스타일 블록 시작/끝
+                    continue
+                    
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                if line.endswith('{'):  # 새로운 선택자 시작
+                    current_selector = line[:-1].strip()
+                    styles[current_selector] = []
+                elif line.endswith('}'):  # 선택자 블록 끝
+                    current_selector = None
+                elif current_selector and ':' in line:  # 스타일 속성
+                    styles[current_selector].append(line)
+            
+            return styles
         
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'insert':
-                changes["additions"].extend({
-                    "line": j,
-                    "content": new_lines[j]
-                } for j in range(j1, j2))
-            elif tag == 'delete':
-                changes["deletions"].extend({
-                    "line": i,
-                    "content": original_lines[i]
-                } for i in range(i1, i2))
-            elif tag == 'replace':
-                changes["modifications"].extend({
-                    "original_line": i,
-                    "new_line": j,
-                    "original_content": original_lines[i],
-                    "new_content": new_lines[j]
-                } for i, j in zip(range(i1, i2), range(j1, j2)))
+        original_styles = parse_style_block(original_lines)
+        new_styles = parse_style_block(new_lines)
+        
+        # 스타일 변경사항 분석
+        for selector, new_props in new_styles.items():
+            if selector in original_styles:
+                # 기존 스타일에 새로운 속성 추가 또는 수정
+                original_props = set(original_styles[selector])
+                new_props_set = set(new_props)
+                
+                added_props = new_props_set - original_props
+                if added_props:
+                    changes["additions"].extend({
+                        "line": -1,  # 실제 라인 번호는 프론트엔드에서 결정
+                        "content": prop
+                    } for prop in added_props)
+                
+                modified_props = {prop for prop in new_props if prop not in added_props}
+                if modified_props:
+                    changes["modifications"].extend({
+                        "original_line": -1,
+                        "new_line": -1,
+                        "original_content": "",
+                        "new_content": prop
+                    } for prop in modified_props)
+            else:
+                # 새로운 스타일 블록 추가
+                changes["additions"].append({
+                    "line": -1,
+                    "content": f"{selector} {{\n  " + "\n  ".join(new_props) + "\n}}"
+                })
         
         return {
             "status": "success",
@@ -73,7 +109,8 @@ async def process_gpt4o_mini(request: GPTRequest):
         다른 분야에 대한 질문은 절대 답변하지 마세요.
         모든 프로그래밍 언어에 대한 질문에 답변할 수 있으며, 
         사용자가 특정 언어로 코드 변환을 요청할 경우 해당 언어로 변환하여 제공해주세요.
-        이전 코드의 기능을 동일하게 유지하면서 요청한 언어로 변환해주세요."""
+        이전 코드의 기능을 동일하게 유지하면서 요청한 언어로 변환해주세요.
+        코드 블록을 작성할 때는 언어 지정 없이 ``` 만 사용하세요."""
 
         messages = [
             {
@@ -185,3 +222,64 @@ async def process_gpt4o_mini(request: GPTRequest):
             
     except Exception as e:
         return {"answer": f"서버 오류: {str(e)}"}
+
+@router.post("/api/analyze-file")
+async def analyze_file(request: GPTRequest):
+    try:
+        # 파일이 비어있거나 선택되지 않은 경우
+        if not request.code or request.code.isspace():
+            if not request.question:
+                return {"answer": "파일을 선택하거나 프로그래밍 관련 질문을 입력해주세요."}
+            
+            # GPT에게 일반적인 프로그래밍 질문 전달
+            system_prompt = """당신은 프로그래밍 전문가입니다.
+            JavaScript와 Python에 대한 질문에만 답변해주세요.
+            다른 주제의 질문이 들어오면 "JavaScript 또는 Python 관련 질문만 답변 가능합니다."라고 답변해주세요.
+            코드 예제가 필요한 경우 실행 가능한 코드를 제공해주세요.
+            답변은 다음 형식으로 제공해주세요:
+            1. 개념 설명
+            2. 코드 예제 (있는 경우)
+            3. 추가 참고사항"""
+
+            client = openai.OpenAI()
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.question}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            return {"answer": response.choices[0].message.content}
+
+        # 파일 분석 로직
+        file_extension = request.code.split('.')[-1].lower() if '.' in request.code else ''
+        
+        if file_extension not in ['js', 'py']:
+            return {"answer": "지원하지 않는 파일 형식입니다. JavaScript 또는 Python 파일만 분석 가능합니다."}
+
+        system_prompt = f"""당신은 {file_extension.upper()} 코드 분석 전문가입니다. 
+        주어진 코드 파일의 컨텍스트를 기반으로만 질문에 답변해주세요. 
+        코드의 구조, 목적, 기능을 정확히 이해하고 설명해주세요.
+        코드 블록을 작성할 때는 언어 지정 없이 ``` 만 사용하세요.
+        답변은 다음 형식으로 제공해주세요:
+        1. 코드 분석 결과
+        2. 질문에 대한 답변
+        3. 개선 제안사항 (있는 경우)"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"코드:\n{request.code}\n\n질문:\n{request.question}"}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        return {"answer": response.choices[0].message.content}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
