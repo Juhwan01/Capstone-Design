@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Header
 from github import Github, GithubException
 from typing import Optional
 import httpx
-import os, git
+import os
 from dependencies.config import get_config
-from domains.users.dto import CodeExchange, FileCreate, FileUpdate, CloneRequest
+from domains.users.dto import CodeExchange, FileCreate, FileUpdate
 
 config = get_config()
 
@@ -46,7 +46,12 @@ async def get_user_repos(authorization: str = Header(..., description="Bearer í†
     token = get_token_from_header(authorization)
     g = get_github_client(token)
     try:
-        return [repo.name for repo in g.get_user().get_repos()]
+        redata = []
+        repos = g.get_user().get_repos()
+        for repo in repos:
+            redata.append({'repo_name':repo.name, 'clone_url':repo.clone_url})
+        print(redata)
+        return redata
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -104,21 +109,3 @@ async def create_file(file_create: FileCreate):
         return {"message": "File created successfully"}
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-@router.post("/clone-repo")
-def clone_repository(request: CloneRequest):
-    repo_url = request.repo_url
-    destination = request.destination
-    
-    if not repo_url.startswith("https://github.com/"):
-        raise HTTPException(status_code=400, detail="Invalid GitHub repository URL")
-    
-    # Check if destination directory exists
-    if os.path.exists(destination):
-        raise HTTPException(status_code=400, detail="Destination directory already exists")
-    
-    try:
-        git.Repo.clone_from(repo_url, destination)
-        return {"message": "Repository cloned successfully", "path": destination}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
