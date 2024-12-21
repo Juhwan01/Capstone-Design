@@ -109,3 +109,21 @@ async def create_file(file_create: FileCreate):
         return {"message": "File created successfully"}
     except GithubException as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/clone-repo")
+def clone_repository(request: CloneRequest):
+    repo_url = request.repo_url
+    destination = request.destination
+    
+    if not repo_url.startswith("https://github.com/"):
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository URL")
+    
+    # Check if destination directory exists
+    if os.path.exists(destination):
+        raise HTTPException(status_code=400, detail="Destination directory already exists")
+    
+    try:
+        git.Repo.clone_from(repo_url, destination)
+        return {"message": "Repository cloned successfully", "path": destination}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
