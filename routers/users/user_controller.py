@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Header
 from github import Github, GithubException
 from typing import Optional
 import httpx
-import os
+import os, git
 from dependencies.config import get_config
 from domains.users.dto import CodeExchange, FileCreate, FileUpdate, CloneRequest
 
